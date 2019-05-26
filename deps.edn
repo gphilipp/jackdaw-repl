@@ -1,0 +1,14 @@
+{:deps
+ {org.clojure/clojure {:mvn/version "1.10.0"}
+  danlentz/clj-uuid {:mvn/version "0.1.7"}
+  org.apache.kafka/kafka-clients {:mvn/version "2.2.0"}
+  ch.qos.logback/logback-classic {:mvn/version "1.2.3"}
+  org.clojure/test.check {:mvn/version "0.9.0"}
+  fundingcircle/jackdaw {:mvn/version "0.6.4"}}
+
+ :mvn/repos
+ {"confluent" {:url "https://packages.confluent.io/maven/"}}
+
+ :paths ["src" "dev" "resources"]
+ }
+

@@ -1,0 +1,26 @@
+{
+ :kafka {"bootstrap.servers" "localhost:9092"
+         "default.key.serde" "jackdaw.serdes.EdnSerde"
+         "default.value.serde" "jackdaw.serdes.EdnSerde"
+         "cache.max.bytes.buffering" "0"}
+
+ :topic-registry {:topics #ig/refset :kafka/topic
+                  :kafka-config #ig/ref :kafka}
+
+ [:kafka/streams-app :app/tracker] {:app-config #ig/ref :kafka
+                                    :topic-registry #ig/ref :topic-registry
+                                    :topology-fn poc.tracker/topology-builder}
+
+ [:kafka/topic :topic/data-acquired] {:topic-name "data-acquired"
+                                      :partition-count 1
+                                      :replication-factor 1
+                                      :key-serde {:serde-keyword :jackdaw.serdes.edn/serde}
+                                      :value-serde {:serde-keyword :jackdaw.serdes.edn/serde}}
+
+ [:kafka/topic :topic/loan-application] {:topic-name "loan-application"
+                                         :partition-count 1
+                                         :replication-factor 1
+                                         :key-serde {:serde-keyword :jackdaw.serdes.edn/serde}
+                                         :value-serde {:serde-keyword :jackdaw.serdes.edn/serde}}}
+
+}

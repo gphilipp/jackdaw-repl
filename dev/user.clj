@@ -5,10 +5,11 @@
             [jackdaw.client.log :as jcl]
             [jackdaw.admin :as ja]
             [jackdaw.serdes.edn :as jse]
-            [jackdaw.streams :as j]
-            [system])
-  (:import org.apache.kafka.common.serialization.Serdes))
+            [integrant.repl :refer [clear go halt prep init reset reset-all]]
+            [poc.system :as system]))
 
+
+(integrant.repl/set-prep! (constantly (system/read-config)))
 
 ;;; ------------------------------------------------------------
 ;;;
@@ -125,35 +126,8 @@
    (map (juxt :key :value) (get-records topic-config polling-interval-ms))))
 
 
-;;; ------------------------------------------------------------
-;;;
-;;; Start and stop the system
-;;;
-
-(defn start
-  "Creates topics, and starts the app."
-  []
-  (alter-var-root #'system/system merge (system/start)))
-
-(defn stop
-  "Stops the app, and deletes topics and internal state."
-  []
-  (system/stop)
-  (alter-var-root #'system/system (constantly nil)))
-
-
-(defn reset
-  "Resets the app."
-  []
-  (stop)
-  (Thread/sleep 5000)
-  (start))
-
-
 (comment
-
   (list-topics)
   (start)
 
-  ()
   )

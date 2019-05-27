@@ -9,7 +9,6 @@
             [clojure.java.shell :refer [sh]]
             [jackdaw.serdes.resolver :as resolver]
             [jackdaw.admin :as ja]
-            [poc.tracker :as poc]
             [integrant.core :as ig]
             [clojure.java.io :as io]
             [jackdaw.streams :as j]))
@@ -56,8 +55,7 @@
 
 
 (defmethod ig/init-key :kafka/streams-app [key {:keys [topic-registry topology-fn app-config]}]
-  (let [
-        application-id (make-application-id key)
+  (let [application-id (make-application-id key)
         app            (j/kafka-streams
                          ((resolve topology-fn)
                           (:topic-metadata topic-registry))
@@ -95,54 +93,9 @@
   (doseq [topic (vals topic-metadata)]
     (re-delete-topics kafka-config (re-pattern (str (->> topic :topic-name))))))
 
+
 (defn read-config []
   (-> "config.edn"
     (io/resource)
     (slurp)
     (ig/read-string)))
-
-(comment
-
-  (require '[user :refer :all])
-  ;(require '[sc.api :refer :all])
-
-  (list-topics)
-
-  (require '[integrant.repl :refer [clear go halt prep init reset reset-all]])
-  (integrant.repl/set-prep! read-config)
-
-  (go)
-
-  (def system integrant.repl.state/system)
-
-  (halt)
-  (reset)
-
-
-  (def data-acquired-topic (get-in system [:topic-registry :topic-metadata :data-acquired]))
-  (def loan-application-topic (get-in system [:topic-registry :topic-metadata :loan-application]))
-
-  (let [loan-application-id (clj-uuid/v4)]
-
-    (publish data-acquired-topic loan-application-id {:id (clj-uuid/v4)
-                                                      :loan-application-id loan-application-id
-                                                      :data {"company-house-number" "1234567"}
-                                                      :form-id "kyc-1"})
-
-    ;; As soon as possible
-    ;; Within the next few weeks
-    ;; Just checking for the future
-    (publish data-acquired-topic loan-application-id {:id (clj-uuid/v4)
-                                                      :loan-application-id loan-application-id
-                                                      :data {"When are you looking to take funds?" "As soon as possible"}
-                                                      :form-id "risk-splitter-1"}))
-
-  (get-keyvals data-acquired-topic)
-  (get-keyvals loan-application-topic)
-
-
-  (let [kafka-config {"bootstrap.servers" "localhost:9092"}]
-    (doseq [topic-name ["data-acquired" "loan-application"]]
-      (re-delete-topics kafka-config (re-pattern topic-name))))
-
-  )

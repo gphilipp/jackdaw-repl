@@ -11,7 +11,23 @@
                                     :topic-registry #ig/ref :topic-registry
                                     :topology-fn poc.tracker/topology-builder}
 
+ [:kafka/streams-app :app/decisioning] {:app-config #ig/ref :kafka
+                                        :topic-registry #ig/ref :topic-registry
+                                        :topology-fn poc.decisioning/topology-builder}
+
+ [:kafka/topic :topic/data-validated] {:topic-name "data-validated"
+                                       :partition-count 1
+                                       :replication-factor 1
+                                       :key-serde {:serde-keyword :jackdaw.serdes.edn/serde}
+                                       :value-serde {:serde-keyword :jackdaw.serdes.edn/serde}}
+
  [:kafka/topic :topic/data-acquired] {:topic-name "data-acquired"
+                                      :partition-count 1
+                                      :replication-factor 1
+                                      :key-serde {:serde-keyword :jackdaw.serdes.edn/serde}
+                                      :value-serde {:serde-keyword :jackdaw.serdes.edn/serde}}
+
+ [:kafka/topic :topic/decision-made] {:topic-name "decision-made"
                                       :partition-count 1
                                       :replication-factor 1
                                       :key-serde {:serde-keyword :jackdaw.serdes.edn/serde}

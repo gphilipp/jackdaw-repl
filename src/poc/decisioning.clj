@@ -8,13 +8,6 @@
             [sc.api]
             ))
 
-(defn- merge-state
-  [aggregate [_ v]]
-  (update aggregate :data merge (:data v)))
-
-(defn printer [kstream]
-  (j/peek kstream #(log/infof "k: %s v: %s" %1 %2)))
-
 
 (defn transform [record]
   (sc.api/spy)
@@ -22,6 +15,7 @@
 
 (defn topology-builder
   [topic-metadata]
+  (sc.api/spy)
   (let [builder (j/streams-builder)]
     (-> (j/kstream builder (:data-validated topic-metadata))
       (j/map-values transform)

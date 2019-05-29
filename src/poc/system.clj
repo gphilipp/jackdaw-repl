@@ -54,11 +54,10 @@
   (reduce #(assoc %1 (-> %2 :topic-name keyword) %2) {} topics))
 
 
-(defmethod ig/init-key :kafka/streams-app [key {:keys [topic-registry topology-fn app-config]}]
+(defmethod ig/init-key :kafka/streams-app [key {:keys [topic-metadata topology-fn app-config]}]
   (let [application-id (make-application-id key)
         app            (j/kafka-streams
-                         ((resolve topology-fn)
-                          (:topic-metadata topic-registry))
+                         ((resolve topology-fn) topic-metadata)
                          (assoc app-config "application.id" application-id))]
     (j/start app)
     (log/infof "%s app is up" key)

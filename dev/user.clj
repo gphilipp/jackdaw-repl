@@ -9,8 +9,6 @@
             [poc.system :as system]))
 
 
-(integrant.repl/set-prep! (constantly (system/read-config)))
-
 ;;; ------------------------------------------------------------
 ;;;
 ;;; Configure topics

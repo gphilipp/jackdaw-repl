@@ -4,22 +4,64 @@
             [poc.tracker]
             [poc.decisioning]
             [poc.system :as system]
-            [clj-uuid]))
+            [clj-uuid]
+            [integrant.repl :refer [clear go halt prep init reset reset-all]]
+            [integrant.core :as ig]))
 
 (list-topics)
 
-(require '[integrant.repl :refer [clear go halt prep init reset reset-all]])
-(integrant.repl/set-prep! system/read-config)
+(defn create-and-resolve-topic [topic-key]
+  (let [metadata {:topic-name (name topic-key)
+                  :partition-count 1
+                  :replication-factor 1
+                  :key-serde {:serde-keyword :jackdaw.serdes.edn/serde}
+                  :value-serde {:serde-keyword :jackdaw.serdes.edn/serde}}]
+    (assoc metadata
+           :key-serde (poc.system/resolve-serde (:key-serde metadata))
+           :value-serde (poc.system/resolve-serde (:value-serde metadata)))))
+
+(def topics (atom {}))
+
+(def p (proxy [clojure.lang.ILookup] []
+         (valAt [x]
+           (let [new-topic (create-and-resolve-topic x)]
+             (swap! topics assoc x new-topic)
+             new-topic))))
+
+(get p :data-acquired)
+
+(def kafka {"bootstrap.servers" "localhost:9092"
+            "default.key.serde" "jackdaw.serdes.EdnSerde"
+            "default.value.serde" "jackdaw.serdes.EdnSerde"
+            "cache.max.bytes.buffering" "0"})
+
+(def config {[:kafka/streams-app :app/tracker]
+             {:app-config kafka
+              :topic-metadata p
+              :topology-fn 'poc.tracker/topology-builder}
+
+             [:kafka/streams-app :app/decisioning]
+             {:app-config kafka
+              :topic-metadata p
+              :topology-fn 'poc.decisioning/topology-builder}})
+
+(integrant.repl/set-prep! (constantly config))
+
+(let [{:keys [data-acquired-topic data-validated-topic foo]} p]
+  [data-validated-topic data-acquired-topic  foo])
 
 (go)
 (halt)
 
 (def system integrant.repl.state/system)
 
-(def data-acquired-topic (get-in system [:topic-registry :topic-metadata :data-acquired]))
-(def data-validated-topic (get-in system [:topic-registry :topic-metadata :data-validated]))
-(def loan-application-topic (get-in system [:topic-registry :topic-metadata :loan-application]))
-(def decision-made-topic (get-in system [:topic-registry :topic-metadata :decision-made]))
+
+
+
+(def data-acquired-topic (:data-acquired p))
+(def data-validated-topic (:data-validated-topic p))
+(def loan-application-topic (:loan-application-topic p))
+(def decision-made-topic (:decision-made-topic p))
 
 (let [loan-application-id (clj-uuid/v4)]
 

@@ -8,10 +8,11 @@
 
 (defn- merge-state
   [aggregate [_ v]]
-  (update aggregate :data merge (:data v)))
+  (update aggregate :loan-application-state merge (:data v)))
 
 (defn printer [kstream]
   (j/peek kstream println))
+
 
 
 (defn topology-builder
@@ -20,14 +21,14 @@
     (do
       (let [data-acquired (j/kstream builder (:data-acquired topic-metadata))]
         (-> data-acquired
-          (j/group-by-key)
-          (streams/aggregate hash-map merge-state)
-          (streams/to-kstream)
-          (j/to (:loan-application topic-metadata)))
+            (j/group-by-key)
+            (streams/aggregate hash-map merge-state)
+            (streams/to-kstream)
+            (j/to (:loan-application topic-metadata)))
         (-> data-acquired
-          printer
-          ;(j/map-values (fn [[k v]] [k (assoc v :status :validated)]))
-          (j/to (:data-validated topic-metadata))))
+            printer
+            ;(j/map-values (fn [[k v]] [k (assoc v :status :validated)]))
+            (j/to (:data-validated topic-metadata))))
       builder)))
 
 

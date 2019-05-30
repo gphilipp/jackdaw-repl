@@ -1,13 +1,8 @@
-(ns poc.decisioning
+(ns example.decisioner
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
-
-            [jackdaw.streams :as streams]
-            [jackdaw.streams :as j]
-            [sc.api]
-            ))
-
+            [jackdaw.streams :as j]))
 
 (defn transform [record]
   (sc.api/spy)
@@ -15,7 +10,6 @@
 
 (defn topology-builder
   [topic-metadata]
-  (sc.api/spy)
   (let [builder (j/streams-builder)]
     (-> (j/kstream builder (:data-validated topic-metadata))
       (j/map-values transform)

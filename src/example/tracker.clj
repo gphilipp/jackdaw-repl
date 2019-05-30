@@ -1,4 +1,4 @@
-(ns poc.tracker
+(ns example.tracker
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
@@ -14,21 +14,20 @@
   (j/peek kstream println))
 
 
-
 (defn topology-builder
   [topic-metadata]
   (let [builder (j/streams-builder)]
     (do
       (let [data-acquired (j/kstream builder (:data-acquired topic-metadata))]
         (-> data-acquired
-            (j/group-by-key)
-            (streams/aggregate hash-map merge-state)
-            (streams/to-kstream)
-            (j/to (:loan-application topic-metadata)))
+          (j/group-by-key)
+          (streams/aggregate hash-map merge-state)
+          (streams/to-kstream)
+          (j/to (:loan-application topic-metadata)))
         (-> data-acquired
-            printer
-            ;(j/map-values (fn [[k v]] [k (assoc v :status :validated)]))
-            (j/to (:data-validated topic-metadata))))
+          printer
+          (j/map-values (fn [[k v]] [k (assoc v :status :validated)]))
+          (j/to (:data-validated topic-metadata))))
       builder)))
 
 

@@ -1,17 +1,16 @@
-(ns poc.system
-  "Functions to start and stop the system, used for interactive
-  development.
-
-  These functions are required by the `user` namespace and should not
+(ns jackdaw.dev
+  "Functions to facilitate interactive development of Kafka topologies.
+  These functions are meant to required by `user` or `scratch` namespace and should not
   be called directly."
-  (:require [clojure.string :as str]
-            [clojure.tools.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [clojure.java.shell :refer [sh]]
             [jackdaw.serdes.resolver :as resolver]
             [jackdaw.admin :as ja]
             [integrant.core :as ig]
             [clojure.java.io :as io]
-            [jackdaw.streams :as j]))
+            [jackdaw.streams :as j]
+            [jackdaw.client.log :as jcl]
+            [jackdaw.client :as jc]))
 
 
 (def resolve-serde
@@ -25,6 +24,59 @@
   (with-open [client (ja/->AdminClient kafka-config)]
     (ja/create-topics! client topic-list)))
 
+(defn kafka-producer-config
+  []
+  {"bootstrap.servers" "localhost:9092"})
+
+(defn kafka-consumer-config
+  [group-id]
+  {"bootstrap.servers" "localhost:9092"
+   "group.id" group-id
+   "auto.offset.reset" "earliest"
+   "enable.auto.commit" "false"})
+
+
+(defn publish
+  "Takes a topic config and record value, and (optionally) a key and
+  parition number, and produces to a Kafka topic."
+  ([topic-config value]
+   (with-open [client (jc/producer (kafka-producer-config) topic-config)]
+     @(jc/produce! client topic-config value))
+   nil)
+
+  ([topic-config key value]
+   (with-open [client (jc/producer (kafka-producer-config) topic-config)]
+     @(jc/produce! client topic-config key value))
+   nil)
+
+  ([topic-config partition key value]
+   (with-open [client (jc/producer (kafka-producer-config) topic-config)]
+     @(jc/produce! client topic-config partition key value))
+   nil))
+
+
+(defn get-records
+  "Takes a topic config, consumes from a Kafka topic, and returns a
+  seq of maps."
+  ([topic-config]
+   (get-records topic-config 200))
+
+  ([topic-config polling-interval-ms]
+   (let [client-config (kafka-consumer-config
+                         (str (java.util.UUID/randomUUID)))]
+     (with-open [client (jc/subscribed-consumer client-config
+                          [topic-config])]
+       (doall (jcl/log client 100 seq))))))
+
+
+(defn get-keyvals
+  "Takes a topic config, consumes from a Kafka topic, and returns a
+  seq of key-value pairs."
+  ([topic-config]
+   (get-keyvals topic-config 20))
+
+  ([topic-config polling-interval-ms]
+   (map (juxt :key :value) (get-records topic-config polling-interval-ms))))
 
 (defn re-delete-topics
   "Takes an instance of java.util.regex.Pattern and deletes any Kafka
@@ -52,6 +104,29 @@
 
 (defn make-topic-metadata [topics]
   (reduce #(assoc %1 (-> %2 :topic-name keyword) %2) {} topics))
+
+
+(defn create-and-resolve-topic [topic-key]
+  (let [metadata {:topic-name (name topic-key)
+                  :partition-count 1
+                  :replication-factor 1
+                  :key-serde {:serde-keyword :jackdaw.serdes.edn/serde}
+                  :value-serde {:serde-keyword :jackdaw.serdes.edn/serde}}]
+    (assoc metadata
+      :key-serde (resolve-serde (:key-serde metadata))
+      :value-serde (resolve-serde (:value-serde metadata)))))
+
+(defn dynamic-topic-metadata
+  "This topic-metadata works in a wishful thinking way.
+  Just `get` a topic keyword from it will create the topic and return
+  a proper jackdaw config map for it"
+  []
+  (let [topics (atom {})]
+    (proxy [clojure.lang.ILookup] []
+      (valAt [x]
+        (let [new-topic (create-and-resolve-topic x)]
+          (swap! topics assoc x new-topic)
+          new-topic)))))
 
 
 (defmethod ig/init-key :kafka/streams-app [key {:keys [topic-metadata topology-fn app-config]}]

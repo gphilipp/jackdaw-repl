@@ -2,33 +2,19 @@
   (:require [user :refer :all]
             [sc.api :refer :all]
             [poc.tracker]
-            [poc.decisioning]
+            [poc.decisioner]
             [poc.system :as system]
             [clj-uuid]
+            [jackdaw.dev :as jd]
             [integrant.repl :refer [clear go halt prep init reset reset-all]]
             [integrant.core :as ig]))
 
 (list-topics)
 
-(defn create-and-resolve-topic [topic-key]
-  (let [metadata {:topic-name (name topic-key)
-                  :partition-count 1
-                  :replication-factor 1
-                  :key-serde {:serde-keyword :jackdaw.serdes.edn/serde}
-                  :value-serde {:serde-keyword :jackdaw.serdes.edn/serde}}]
-    (assoc metadata
-           :key-serde (poc.system/resolve-serde (:key-serde metadata))
-           :value-serde (poc.system/resolve-serde (:value-serde metadata)))))
-
-(def topics (atom {}))
-
-(def p (proxy [clojure.lang.ILookup] []
-         (valAt [x]
-           (let [new-topic (create-and-resolve-topic x)]
-             (swap! topics assoc x new-topic)
-             new-topic))))
-
-(get p :data-acquired)
+;; this topic-metadata works in a wishful thinking way.
+;; `get` a topic keyword from it will create the topic and return
+;; a proper jackdaw config map for it.
+(def topic-metadata (jd/dynamic-topic-metadata))
 
 (def kafka {"bootstrap.servers" "localhost:9092"
             "default.key.serde" "jackdaw.serdes.EdnSerde"
@@ -37,18 +23,18 @@
 
 (def config {[:kafka/streams-app :app/tracker]
              {:app-config kafka
-              :topic-metadata p
+              :topic-metadata topic-metadata
               :topology-fn 'poc.tracker/topology-builder}
 
              [:kafka/streams-app :app/decisioning]
              {:app-config kafka
-              :topic-metadata p
-              :topology-fn 'poc.decisioning/topology-builder}})
+              :topic-metadata topic-metadata
+              :topology-fn 'poc.decisioner/topology-builder}})
 
 (integrant.repl/set-prep! (constantly config))
 
-(let [{:keys [data-acquired-topic data-validated-topic foo]} p]
-  [data-validated-topic data-acquired-topic  foo])
+(let [{:keys [data-acquired-topic data-validated-topic foo]} dynamic-topic-metadata]
+  [data-validated-topic data-acquired-topic foo])
 
 (go)
 (halt)
@@ -58,10 +44,10 @@
 
 
 
-(def data-acquired-topic (:data-acquired p))
-(def data-validated-topic (:data-validated-topic p))
-(def loan-application-topic (:loan-application-topic p))
-(def decision-made-topic (:decision-made-topic p))
+(def data-acquired-topic (:data-acquired dynamic-topic-metadata))
+(def data-validated-topic (:data-validated-topic dynamic-topic-metadata))
+(def loan-application-topic (:loan-application-topic dynamic-topic-metadata))
+(def decision-made-topic (:decision-made-topic dynamic-topic-metadata))
 
 (let [loan-application-id (clj-uuid/v4)]
 

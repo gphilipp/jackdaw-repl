@@ -36,32 +36,6 @@
     :value-serde value-serde}))
 
 
-;;; ------------------------------------------------------------
-;;;
-;;; Create and list topics
-;;;
-
-(defn kafka-admin-client-config
-  []
-  {"bootstrap.servers" "localhost:9092"})
-
-(defn create-topic
-  "Takes a topic config and creates a Kafka topic."
-  [topic-config]
-  (with-open [client (ja/->AdminClient (kafka-admin-client-config))]
-    (ja/create-topics! client [topic-config])))
-
-(defn list-topics
-  "Returns a list of Kafka topics."
-  []
-  (with-open [client (ja/->AdminClient (kafka-admin-client-config))]
-    (ja/list-topics client)))
-
-(defn topic-exists?
-  "Takes a topic name and returns true if the topic exists."
-  [topic-config]
-  (with-open [client (ja/->AdminClient (kafka-admin-client-config))]
-    (ja/topic-exists? client topic-config)))
 
 
 ;;; ------------------------------------------------------------

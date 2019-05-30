@@ -1,4 +1,4 @@
-(ns poc.system
+(ns jackdaw.repl
   "Functions to start and stop the system, used for interactive
   development.
 
@@ -14,8 +14,16 @@
             [jackdaw.streams :as j]))
 
 
-(def resolve-serde
-  (resolver/serde-resolver))
+(defn kafka-admin-client-config
+  []
+  {"bootstrap.servers" "localhost:9092"})
+
+
+(defn create-topic
+  "Takes a topic config and creates a Kafka topic."
+  [topic-config]
+  (with-open [client (ja/->AdminClient (kafka-admin-client-config))]
+    (ja/create-topics! client [topic-config])))
 
 
 (defn create-topics
@@ -24,6 +32,20 @@
   (log/infof "Creating topics %s" (clojure.string/join "," (mapv :topic-name topic-list)))
   (with-open [client (ja/->AdminClient kafka-config)]
     (ja/create-topics! client topic-list)))
+
+
+(defn topic-exists?
+  "Takes a topic name and returns true if the topic exists."
+  [topic-config]
+  (with-open [client (ja/->AdminClient (kafka-admin-client-config))]
+    (ja/topic-exists? client topic-config)))
+
+
+(defn list-topics
+  "Returns a list of Kafka topics."
+  []
+  (with-open [client (ja/->AdminClient (kafka-admin-client-config))]
+    (ja/list-topics client)))
 
 
 (defn re-delete-topics
@@ -54,6 +76,31 @@
   (reduce #(assoc %1 (-> %2 :topic-name keyword) %2) {} topics))
 
 
+(defn create-and-resolve-topic [topic-key]
+  (let [metadata {:topic-name (name topic-key)
+                  :partition-count 1
+                  :replication-factor 1
+                  :key-serde {:serde-keyword :jackdaw.serdes.edn/serde}
+                  :value-serde {:serde-keyword :jackdaw.serdes.edn/serde}}]
+    (let [resolve-serde
+          (resolver/serde-resolver)]
+      (assoc metadata
+             :key-serde (resolve-serde (:key-serde metadata))
+             :value-serde (resolve-serde (:value-serde metadata))))))
+
+
+(defn dynamic-topic-metadata
+  "Wishful thinking topic metadata implementation.
+  Getting a topic from it with create it and register it in the topic metadata map."
+  []
+  (let [topics (atom {})]
+    (proxy [clojure.lang.ILookup] []
+      (valAt [x]
+        (let [new-topic (create-and-resolve-topic x)]
+          (swap! topics assoc x new-topic)
+          new-topic)))))
+
+
 (defmethod ig/init-key :kafka/streams-app [key {:keys [topic-metadata topology-fn app-config]}]
   (let [application-id (make-application-id key)
         app            (j/kafka-streams
@@ -72,29 +119,9 @@
   (j/close streams-app))
 
 
-(defmethod ig/init-key :kafka/topic [_ opts]
-  (assoc opts
-    :key-serde (resolve-serde (:key-serde opts))
-    :value-serde (resolve-serde (:value-serde opts))))
-
-
-(defmethod ig/init-key :kafka [_ opts] opts)
-
-
-(defmethod ig/init-key :topic-registry [_ {:keys [kafka-config topics]}]
-  (let [topic-metadata (make-topic-metadata topics)]
-    (create-topics kafka-config (vals topic-metadata))
-    {:topic-metadata topic-metadata
-     :kafka-config kafka-config}))
-
-
-(defmethod ig/halt-key! :topic-registry [key {:keys [topic-metadata kafka-config]}]
+(defmethod ig/halt-key! :topic-registry
+  [_ {:keys [topic-metadata kafka-config]}]
   (doseq [topic (vals topic-metadata)]
-    (re-delete-topics kafka-config (re-pattern (str (->> topic :topic-name))))))
+    (re-delete-topics kafka-config
+                      (re-pattern (str (->> topic :topic-name))))))
 
-
-(defn read-config []
-  (-> "config.edn"
-    (io/resource)
-    (slurp)
-    (ig/read-string)))

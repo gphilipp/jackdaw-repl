@@ -5,30 +5,16 @@
             [poc.decisioning]
             [poc.system :as system]
             [clj-uuid]
+            [jackdaw.repl :as jr]
             [integrant.repl :refer [clear go halt prep init reset reset-all]]
             [integrant.core :as ig]))
 
-(list-topics)
+(jr/list-topics)
 
-(defn create-and-resolve-topic [topic-key]
-  (let [metadata {:topic-name (name topic-key)
-                  :partition-count 1
-                  :replication-factor 1
-                  :key-serde {:serde-keyword :jackdaw.serdes.edn/serde}
-                  :value-serde {:serde-keyword :jackdaw.serdes.edn/serde}}]
-    (assoc metadata
-           :key-serde (poc.system/resolve-serde (:key-serde metadata))
-           :value-serde (poc.system/resolve-serde (:value-serde metadata)))))
 
-(def topics (atom {}))
 
-(def p (proxy [clojure.lang.ILookup] []
-         (valAt [x]
-           (let [new-topic (create-and-resolve-topic x)]
-             (swap! topics assoc x new-topic)
-             new-topic))))
-
-(get p :data-acquired)
+(def topic-metadata (jr/dynamic-topic-metadata))
+(get topic-metadata :data-acquired)
 
 (def kafka {"bootstrap.servers" "localhost:9092"
             "default.key.serde" "jackdaw.serdes.EdnSerde"

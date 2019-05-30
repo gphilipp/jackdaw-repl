@@ -1,8 +1,6 @@
-(ns poc.tracker
+(ns app.tracker
   (:require [clojure.spec.alpha :as s]
-            [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
-            [jackdaw.streams :as streams]
             [jackdaw.streams :as j]))
 
 
@@ -10,25 +8,22 @@
   [aggregate [_ v]]
   (update aggregate :loan-application-state merge (:data v)))
 
-(defn printer [kstream]
-  (j/peek kstream println))
-
-
 
 (defn topology-builder
-  [topic-metadata]
+  [{:keys [data-acquired
+           data-validated
+           loan-application]}]
   (let [builder (j/streams-builder)]
     (do
-      (let [data-acquired (j/kstream builder (:data-acquired topic-metadata))]
+      (let [data-acquired (j/kstream builder data-acquired)]
         (-> data-acquired
             (j/group-by-key)
-            (streams/aggregate hash-map merge-state)
-            (streams/to-kstream)
-            (j/to (:loan-application topic-metadata)))
+            (j/aggregate hash-map merge-state)
+            (j/to-kstream)
+            (j/to loan-application))
         (-> data-acquired
-            printer
-            ;(j/map-values (fn [[k v]] [k (assoc v :status :validated)]))
-            (j/to (:data-validated topic-metadata))))
+            (j/map-values (fn [[k v]] [k (assoc v :status :validated)]))
+            (j/to data-validated)))
       builder)))
 
 

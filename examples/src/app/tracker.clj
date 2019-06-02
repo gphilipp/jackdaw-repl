@@ -22,7 +22,7 @@
             (j/to-kstream)
             (j/to loan-application))
         (-> data-acquired
-            (j/map-values (fn [[k v]] [k (assoc v :status :validated)]))
+            ;;(j/map-values (fn [[k v]] [k (assoc v :status :validated)]))
             (j/to data-validated)))
       builder)))
 

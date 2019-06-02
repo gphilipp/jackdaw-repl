@@ -2,7 +2,7 @@
   (:require [jackdaw.streams :as j]))
 
 
-(defn make-decision [[k v]]
+(defn make-decision [_]
   {:decision-made "OK"})
 
 

@@ -1,51 +1,46 @@
 (ns scratch
-  (:require [user :refer :all]
-            [sc.api :refer :all]
-            [poc.tracker]
-            [poc.decisioning]
-            [poc.system :as system]
+  (:require [jackdaw.repl :refer :all]
+            [app.tracker]
+            [app.decisioning]
             [clj-uuid]
             [jackdaw.repl :as jr]
-            [integrant.repl :refer [clear go halt prep init reset reset-all]]))
+            [integrant.repl :refer [clear go halt prep init reset reset-all]]
+            [integrant.core :as ig]))
 
 (jr/list-topics)
 
+(def config {:kafka-config {"bootstrap.servers" "localhost:9092"
+                            "default.key.serde" "jackdaw.serdes.EdnSerde"
+                            "default.value.serde" "jackdaw.serdes.EdnSerde"
+                            "cache.max.bytes.buffering" "0"}
 
-(def topic-metadata (jr/dynamic-topic-metadata))
-(get topic-metadata :data-acquired)
+             :topic-registry {:kafka-config (ig/ref :kafka-config)}
 
-(def kafka {"bootstrap.servers" "localhost:9092"
-            "default.key.serde" "jackdaw.serdes.EdnSerde"
-            "default.value.serde" "jackdaw.serdes.EdnSerde"
-            "cache.max.bytes.buffering" "0"})
-
-(def config {[:kafka/streams-app :app/tracker]
-             {:app-config kafka
-              :topic-metadata topic-metadata
-              :topology-fn 'poc.tracker/build-topology!}
+             [:kafka/streams-app :app/tracker]
+             {:app-config (ig/ref :kafka-config)
+              :topology-fn 'app.tracker/build-topology!
+              :topology-opts {:topic-registry (ig/ref :topic-registry)}}
 
              [:kafka/streams-app :app/decisioning]
-             {:app-config kafka
-              :topic-metadata topic-metadata
-              :topology-fn 'poc.decisioning/build-topology!}})
+             {:app-config (ig/ref :kafka-config)
+              :topology-fn 'app.decisioning/build-topology!
+              :topology-opts {:topic-registry (ig/ref :topic-registry)}}})
+
 
 (integrant.repl/set-prep! (constantly config))
-
-(let [{:keys [data-acquired-topic data-validated-topic foo]} topic-metadata]
-  [data-validated-topic data-acquired-topic  foo])
-
 (go)
-(halt)
-
 (def system integrant.repl.state/system)
 
+(def topic-registry (:topic-registry system))
 
+(let [{:keys [data-acquired-topic data-validated-topic foo]} topic-registry]
+  [data-validated-topic data-acquired-topic  foo])
+(halt)
 
-
-(def data-acquired-topic (:data-acquired topic-metadata))
-(def data-validated-topic (:data-validated-topic topic-metadata))
-(def loan-application-topic (:loan-application-topic topic-metadata))
-(def decision-made-topic (:decision-made-topic topic-metadata))
+(def data-acquired-topic (:data-acquired topic-registry))
+(def data-validated-topic (:data-validated-topic topic-registry))
+(def loan-application-topic (:loan-application-topic topic-registry))
+(def decision-made-topic (:decision-made-topic topic-registry))
 
 (let [loan-application-id (clj-uuid/v4)]
 

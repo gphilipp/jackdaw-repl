@@ -9,9 +9,13 @@
             [clojure.java.shell :refer [sh]]
             [jackdaw.serdes.resolver :as resolver]
             [jackdaw.admin :as ja]
+            [jackdaw.client.log :as jcl]
             [integrant.core :as ig]
             [clojure.java.io :as io]
-            [jackdaw.streams :as j]))
+            [jackdaw.streams :as j]
+            [jackdaw.client :as jc]
+            [jackdaw.streams :as js])
+  (:import (clojure.lang ILookup)))
 
 
 (def kafka-broker-config {"bootstrap.servers" "localhost:9092"})
@@ -139,35 +143,40 @@
                   :replication-factor 1
                   :key-serde {:serde-keyword :jackdaw.serdes.edn/serde}
                   :value-serde {:serde-keyword :jackdaw.serdes.edn/serde}}]
-    (let [resolve-serde
-          (resolver/serde-resolver)]
+    (let [resolve-serde (resolver/serde-resolver)]
       (assoc metadata
              :key-serde (resolve-serde (:key-serde metadata))
              :value-serde (resolve-serde (:value-serde metadata))))))
 
 
-(defn dynamic-topic-metadata
-  "Wishful thinking topic metadata implementation.
-  Getting a topic from it with create it and register it in the topic metadata map."
-  []
-  (let [topics (atom {})]
-    (proxy [clojure.lang.ILookup] []
-      (valAt [x]
-        (let [new-topic (create-and-resolve-topic x)]
-          (swap! topics assoc x new-topic)
-          new-topic)))))
+(defn- make-exception-handler! []
+  (reify Thread$UncaughtExceptionHandler
+    (uncaughtException [_ t e]
+      (log/fatalf e "topology threw an uncaught exception on thread %s" t))))
 
 
-(defmethod ig/init-key :kafka/streams-app [key {:keys [topic-metadata topology-fn app-config]}]
-  (let [application-id (make-application-id key)
-        app            (j/kafka-streams
-                         ((resolve topology-fn) topic-metadata)
-                         (assoc app-config "application.id" application-id))]
-    (j/start app)
-    (log/infof "%s app is up" key)
+(defn start-app! [builder kafka-config]
+  (doto (js/kafka-streams builder kafka-config)
+    (.setUncaughtExceptionHandler (make-exception-handler!))
+    (.start)))
+
+
+(defmethod ig/init-key :kafka/streams-app [[_ app-name]
+                                           {:keys [app-config
+                                                   builder-fn
+                                                   topology-fn
+                                                   topology-opts]
+                                            :or {builder-fn 'jackdaw.streams/streams-builder}}]
+  (log/infof "starting %s streams app" app-name)
+  (let [builder-fun    (resolve builder-fn)
+        topology       (resolve topology-fn)
+        builder        (builder-fun)
+        application-id (str (java.util.UUID/randomUUID))
+        app-config     (assoc app-config "application.id" application-id)]
     {:application-id application-id
-     :streams-app app
-     :app-config app-config}))
+     :app-config app-config
+     :streams-app (-> (topology builder topology-opts)
+                      (start-app! app-config))}))
 
 
 (defmethod ig/halt-key! :kafka/streams-app [_ {:keys [application-id streams-app app-config]}]
@@ -176,9 +185,37 @@
   (j/close streams-app))
 
 
+(defprotocol TopicRegistry
+  (stop [this]))
+
+
+(deftype MockTopicRegistry [kafka-config topics]
+  ILookup
+  (valAt [this x]
+    (let [new-topic (create-and-resolve-topic x)]
+      (update topics assoc x new-topic)
+      new-topic))
+
+  TopicRegistry
+  (stop [this]
+    (doseq [topic (vals topics)]
+      (re-delete-topics kafka-config
+                        (re-pattern (str (->> topic :topic-name)))))
+    )
+  )
+
+
+(defmethod ig/init-key :topic-registry
+  [_ {:keys [kafka-config]}]
+  (->MockTopicRegistry kafka-config {}))
+
+
+(defmethod ig/init-key :kafka-config
+  [_ opts]
+  opts)
+
+
 (defmethod ig/halt-key! :topic-registry
-  [_ {:keys [topic-metadata kafka-config]}]
-  (doseq [topic (vals topic-metadata)]
-    (re-delete-topics kafka-config
-                      (re-pattern (str (->> topic :topic-name))))))
+  [_ topic-registry]
+  (stop topic-registry))
 

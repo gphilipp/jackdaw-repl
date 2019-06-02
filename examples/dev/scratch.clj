@@ -6,11 +6,9 @@
             [poc.system :as system]
             [clj-uuid]
             [jackdaw.repl :as jr]
-            [integrant.repl :refer [clear go halt prep init reset reset-all]]
-            [integrant.core :as ig]))
+            [integrant.repl :refer [clear go halt prep init reset reset-all]]))
 
 (jr/list-topics)
-
 
 
 (def topic-metadata (jr/dynamic-topic-metadata))
@@ -23,17 +21,17 @@
 
 (def config {[:kafka/streams-app :app/tracker]
              {:app-config kafka
-              :topic-metadata p
-              :topology-fn 'poc.tracker/topology-builder}
+              :topic-metadata topic-metadata
+              :topology-fn 'poc.tracker/build-topology!}
 
              [:kafka/streams-app :app/decisioning]
              {:app-config kafka
-              :topic-metadata p
-              :topology-fn 'poc.decisioning/topology-builder}})
+              :topic-metadata topic-metadata
+              :topology-fn 'poc.decisioning/build-topology!}})
 
 (integrant.repl/set-prep! (constantly config))
 
-(let [{:keys [data-acquired-topic data-validated-topic foo]} p]
+(let [{:keys [data-acquired-topic data-validated-topic foo]} topic-metadata]
   [data-validated-topic data-acquired-topic  foo])
 
 (go)
@@ -44,10 +42,10 @@
 
 
 
-(def data-acquired-topic (:data-acquired p))
-(def data-validated-topic (:data-validated-topic p))
-(def loan-application-topic (:loan-application-topic p))
-(def decision-made-topic (:decision-made-topic p))
+(def data-acquired-topic (:data-acquired topic-metadata))
+(def data-validated-topic (:data-validated-topic topic-metadata))
+(def loan-application-topic (:loan-application-topic topic-metadata))
+(def decision-made-topic (:decision-made-topic topic-metadata))
 
 (let [loan-application-id (clj-uuid/v4)]
 

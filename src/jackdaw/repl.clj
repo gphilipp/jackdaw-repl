@@ -14,9 +14,66 @@
             [jackdaw.streams :as j]))
 
 
-(defn kafka-admin-client-config
-  []
-  {"bootstrap.servers" "localhost:9092"})
+(def kafka-broker-config {"bootstrap.servers" "localhost:9092"})
+
+
+(defn kafka-admin-client-config []
+  kafka-broker-config)
+
+
+(defn kafka-producer-config []
+  kafka-broker-config)
+
+
+(defn kafka-consumer-config
+  [group-id]
+  (merge kafka-broker-config
+         {"group.id" group-id
+          "auto.offset.reset" "earliest"
+          "enable.auto.commit" "false"}))
+
+
+(defn publish
+  "Takes a topic config and record value, and (optionally) a key and
+  parition number, and produces to a Kafka topic."
+  ([topic-config value]
+   (with-open [client (jc/producer (kafka-producer-config) topic-config)]
+     @(jc/produce! client topic-config value))
+   nil)
+
+  ([topic-config key value]
+   (with-open [client (jc/producer (kafka-producer-config) topic-config)]
+     @(jc/produce! client topic-config key value))
+   nil)
+
+  ([topic-config partition key value]
+   (with-open [client (jc/producer (kafka-producer-config) topic-config)]
+     @(jc/produce! client topic-config partition key value))
+   nil))
+
+
+(defn get-records
+  "Takes a topic config, consumes from a Kafka topic, and returns a
+  seq of maps."
+  ([topic-config]
+   (get-records topic-config 200))
+
+  ([topic-config polling-interval-ms]
+   (let [client-config (kafka-consumer-config
+                         (str (java.util.UUID/randomUUID)))]
+     (with-open [client (jc/subscribed-consumer client-config
+                                                [topic-config])]
+       (doall (jcl/log client 100 seq))))))
+
+
+(defn get-keyvals
+  "Takes a topic config, consumes from a Kafka topic, and returns a
+  seq of key-value pairs."
+  ([topic-config]
+   (get-keyvals topic-config 20))
+
+  ([topic-config polling-interval-ms]
+   (map (juxt :key :value) (get-records topic-config polling-interval-ms))))
 
 
 (defn create-topic

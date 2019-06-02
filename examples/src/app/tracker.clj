@@ -9,11 +9,11 @@
   (update aggregate :loan-application-state merge (:data v)))
 
 
-(defn topology-builder
-  [{:keys [data-acquired
-           data-validated
-           loan-application]}]
-  (let [builder (j/streams-builder)]
+(defn build-topology!
+  [builder {:keys [topic-registry]}]
+  (let [{:keys [data-acquired
+                data-validated
+                loan-application]} topic-registry]
     (do
       (let [data-acquired (j/kstream builder data-acquired)]
         (-> data-acquired

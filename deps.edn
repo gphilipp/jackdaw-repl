@@ -11,6 +11,6 @@
  :mvn/repos
  {"confluent" {:url "https://packages.confluent.io/maven/"}}
 
- :paths ["src" "dev" "examples"]
+ :paths ["src" "examples/dev" "examples/src"]
  }
 

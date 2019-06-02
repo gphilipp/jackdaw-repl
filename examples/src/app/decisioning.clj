@@ -6,9 +6,9 @@
   {:decision-made "OK"})
 
 
-(defn topology-builder
-  [{:keys [data-validated decision-made]}]
-  (let [builder (j/streams-builder)]
+(defn build-topology!
+  [builder {:keys [topic-registry]}]
+  (let [{:keys [data-validated decision-made]} topic-registry]
     (-> (j/kstream builder data-validated)
         (j/map-values make-decision)
         (j/to decision-made))

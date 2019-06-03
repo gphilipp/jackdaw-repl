@@ -34,13 +34,14 @@
 (def topic-registry (:topic-registry system))
 
 (let [{:keys [data-acquired-topic data-validated-topic foo]} topic-registry]
-  [data-validated-topic data-acquired-topic  foo])
+  [data-validated-topic data-acquired-topic foo])
+
 (halt)
 
 (def data-acquired-topic (:data-acquired topic-registry))
-(def data-validated-topic (:data-validated-topic topic-registry))
-(def loan-application-topic (:loan-application-topic topic-registry))
-(def decision-made-topic (:decision-made-topic topic-registry))
+(def data-validated-topic (:data-validated topic-registry))
+(def loan-application-topic (:loan-application topic-registry))
+(def decision-made-topic (:decision-made topic-registry))
 
 (let [loan-application-id (clj-uuid/v4)]
 
@@ -61,8 +62,12 @@
 (get-keyvals loan-application-topic)
 (get-keyvals data-validated-topic)
 (get-keyvals decision-made-topic)
+(get-keyvals (:tracker-KSTREAM-AGGREGATE-STATE-STORE-0000000001-changelog topic-registry))
 
 
 (let [kafka-config {"bootstrap.servers" "localhost:9092"}]
-  (doseq [topic-name ["data-acquired" "data-validated" "loan-application" "decision-made"]]
-    (system/re-delete-topics kafka-config (re-pattern topic-name))))
+  (doseq [topic-name ["data-acquired"
+                      "data-validated"
+                      "loan-application"
+                      "decision-made"]]
+    (jr/re-delete-topics kafka-config (re-pattern topic-name))))

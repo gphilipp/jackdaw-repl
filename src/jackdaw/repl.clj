@@ -14,7 +14,8 @@
             [clojure.java.io :as io]
             [jackdaw.streams :as j]
             [jackdaw.client :as jc]
-            [jackdaw.streams :as js])
+            [jackdaw.streams :as js]
+            [hazard.core :as hazard])
   (:import (clojure.lang ILookup)))
 
 
@@ -64,7 +65,7 @@
 
   ([topic-config polling-interval-ms]
    (let [client-config (kafka-consumer-config
-                         (str (java.util.UUID/randomUUID)))]
+                         (str/join "-" (hazard/words 3)))]
      (with-open [client (jc/subscribed-consumer client-config
                                                 [topic-config])]
        (doall (jcl/log client 100 seq))))))
@@ -143,10 +144,14 @@
                   :replication-factor 1
                   :key-serde {:serde-keyword :jackdaw.serdes.edn/serde}
                   :value-serde {:serde-keyword :jackdaw.serdes.edn/serde}}]
-    (let [resolve-serde (resolver/serde-resolver)]
-      (assoc metadata
-             :key-serde (resolve-serde (:key-serde metadata))
-             :value-serde (resolve-serde (:value-serde metadata))))))
+    (let [resolve-serde (resolver/serde-resolver)
+          topic-config  (assoc metadata
+                               :key-serde (resolve-serde (:key-serde metadata))
+                               :value-serde (resolve-serde (:value-serde metadata)))]
+      (do
+        (if (not (topic-exists? topic-config))
+          (create-topic topic-config))
+        topic-config))))
 
 
 (defn- make-exception-handler! []

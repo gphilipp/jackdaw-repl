@@ -1,12 +1,16 @@
 (ns app.tracker
   (:require [clojure.spec.alpha :as s]
             [clojure.spec.alpha :as s]
-            [jackdaw.streams :as j]))
+            [jackdaw.streams :as j]
+            [sc.api]
+            [clojure.tools.logging :as log]))
 
 
 (defn- merge-state
   [aggregate [_ v]]
-  (update aggregate :loan-application-state merge (:data v)))
+  (do
+    (log/infof "aggregating %s to %s" v aggregate)
+    (update aggregate :loan-application-state merge (:data v))))
 
 
 (defn build-topology!

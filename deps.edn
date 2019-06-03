@@ -6,6 +6,7 @@
   org.clojure/test.check {:mvn/version "0.9.0"}
   fundingcircle/jackdaw {:mvn/version "0.6.4"}
   integrant/repl {:mvn/version "0.3.1"}
+  hazard {:mvn/version "0.3.0"}
   vvvvalvalval/scope-capture {:mvn/version "0.3.2"}}
 
  :mvn/repos

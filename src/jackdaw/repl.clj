@@ -185,9 +185,11 @@
 
 
 (defmethod ig/halt-key! :kafka/streams-app [_ {:keys [application-id streams-app app-config]}]
-  (re-delete-topics app-config (re-pattern (str application-id ".*")))
-  (destroy-state-stores application-id)
-  (j/close streams-app))
+  (log/infof "class of streamsapp is %s" (class streams-app))
+  (j/close streams-app)
+  (.cleanUp streams-app)
+  #_(destroy-state-stores application-id)
+  (re-delete-topics app-config (re-pattern (str application-id ".*"))))
 
 
 (defprotocol TopicRegistry
@@ -196,21 +198,22 @@
 
 (deftype MockTopicRegistry [kafka-config topics]
   ILookup
-  (valAt [this x]
-    (let [new-topic (create-and-resolve-topic x)]
-      (update topics assoc x new-topic)
-      new-topic))
+  (valAt [this topic-key]
+    (let [topic (create-and-resolve-topic topic-key)]
+      (swap! topics assoc topic-key topic)
+      topic))
 
   TopicRegistry
   (stop [this]
-    (doseq [topic (vals topics)]
+    (log/infof "Topics recorded so far %s" @topics)
+    (doseq [topic (vals @topics)]
       (re-delete-topics kafka-config
                         (re-pattern (str (->> topic :topic-name)))))))
 
 
 (defmethod ig/init-key :topic-registry
   [_ {:keys [kafka-config]}]
-  (->MockTopicRegistry kafka-config {}))
+  (->MockTopicRegistry kafka-config (atom {})))
 
 
 (defmethod ig/init-key :kafka-config

@@ -205,9 +205,7 @@
   (stop [this]
     (doseq [topic (vals topics)]
       (re-delete-topics kafka-config
-                        (re-pattern (str (->> topic :topic-name)))))
-    )
-  )
+                        (re-pattern (str (->> topic :topic-name)))))))
 
 
 (defmethod ig/init-key :topic-registry

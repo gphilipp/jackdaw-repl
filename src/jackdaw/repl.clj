@@ -176,7 +176,9 @@
   (let [builder-fun    (resolve builder-fn)
         topology       (resolve topology-fn)
         builder        (builder-fun)
-        application-id (str/join "-" (hazard/words 3))
+        application-id (-> app-name
+                           (str/replace ":" "")
+                           (str/replace "/" "-"))
         app-config     (assoc app-config "application.id" application-id)]
     {:application-id application-id
      :app-config app-config

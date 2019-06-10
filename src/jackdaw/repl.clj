@@ -176,7 +176,7 @@
   (let [builder-fun    (resolve builder-fn)
         topology       (resolve topology-fn)
         builder        (builder-fun)
-        application-id (str (java.util.UUID/randomUUID))
+        application-id (str/join "-" (hazard/words 3))
         app-config     (assoc app-config "application.id" application-id)]
     {:application-id application-id
      :app-config app-config

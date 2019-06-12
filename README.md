@@ -32,7 +32,7 @@ docker-compose up -d rest-proxy
 3. Execute the `do` block in the `(comment)` section of `scratch.clj` to run a particular scenario to flow some data into the freshly reset system and put it into action. Most of the time we can do this multiple times without having the kill and restart the REPL, this is basically the famous Stuart Sierra's reloaded workflow, but instead of Component we use Integrant here.
 
 4. When things go wrong (really bad state) we just have to:
-- restart the confluent stack with docker-compose down && docker-compose up -d rest-proxy
+- restart the confluent stack with `docker-compose down && docker-compose up -d rest-proxy`
 - sometimes clear up the /tmp/kafka-streams directory. Normally, that should not be necessary as the kafka-stream app names are randomly generated when we start the topologies up.
 
 

@@ -36,4 +36,4 @@ docker-compose up -d rest-proxy
 - restart the confluent stack with `docker-compose down && docker-compose up -d rest-proxy`
 - sometimes clear up your local `/tmp/kafka-streams` directory. Normally, that should not be necessary as the kafka-streams app names are randomly generated when we start the topologies up.
 
-Note that lib was developed at the same time as https://github.com/FundingCircle/kafka-productionised which is a production-grade quality lib which extracted commonly used bits from production repo, which also has this notion of Topic Registry but its implementation uses `topics-metadata` instead.
+Note that lib was developed at the same time as https://github.com/FundingCircle/kafka-productionised which is a production-grade quality lib which extracted commonly used bits from production repos, which also has this notion of Topic Registry but its implementation uses `topics-metadata` instead.
